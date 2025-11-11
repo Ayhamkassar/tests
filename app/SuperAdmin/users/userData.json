@@ -1,0 +1,12 @@
+[
+  {"id":1, "name":"محمد أيهم",    "email":"ayham.kassar@example.com",  "phone":"+963981234567", "role":"Admin",    "status":"Active"},
+  {"id":2, "name":"سارة الأحمد",  "email":"sarah.ahmad@example.com",   "phone":"+963981234568", "role":"Vendor",   "status":"Active"},
+  {"id":3, "name":"خالد منصور",   "email":"khaled.mansour@example.com", "phone":"+963981234569", "role":"Vendor",   "status":"Active"},
+  {"id":4, "name":"ليلى حسين",    "email":"laila.hussein@example.com",  "phone":"+963981234570", "role":"Customer", "status":"Active"},
+  {"id":5, "name":"أحمد نور",     "email":"ahmad.noor@example.com",     "phone":"+963981234571", "role":"Customer", "status":"Active"},
+  {"id":6, "name":"منى صالح",     "email":"mona.salih@example.com",     "phone":"+963981234572", "role":"Customer", "status":"Suspended"},
+  {"id":7, "name":"رامي خالد",    "email":"rami.khaled@example.com",    "phone":"+963981234573", "role":"Vendor",   "status":"Active"},
+  {"id":8, "name":"نورا سمير",    "email":"nora.samir@example.com",     "phone":"+963981234574", "role":"Customer", "status":"Active"},
+  {"id":9, "name":"طارق إبراهيم",  "email":"tareq.ibrahim@example.com",  "phone":"+963981234575", "role":"Vendor",   "status":"Active"},
+  {"id":10,"name":"دانا مراد",    "email":"dana.murad@example.com",     "phone":"+963981234576", "role":"Customer", "status":"Active"}
+]
