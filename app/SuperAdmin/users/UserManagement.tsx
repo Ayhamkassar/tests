@@ -1,6 +1,21 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { router } from 'expo-router';
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  Animated,
+  Dimensions,
+  Easing,
+  FlatList,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  SafeAreaView,
+} from 'react-native';
+import AnimatedReanimated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import Sidebar from '../../dashboard/sidebar';
 
 const students = [
@@ -13,15 +28,128 @@ const students = [
   { id: '7', name: 'Floyd Miles', roll: '#11', address: 'TA-107 Newyork', class: '01', dob: '03/05/2002', phone: '+123 8988569' },
 ];
 
-export default function UserManagement() {
+const MENU_ITEM_HEIGHT = 56;
+const OPEN_WIDTH = 250;
+const CLOSED_WIDTH = 80;
+
+const menuItems = [
+  { label: "Dashboard", icon: "speedometer-outline", route: "SuperAdmin/dashboard" },
+  { label: "Stores", icon: "storefront-outline", route: "SuperAdmin/stores/StoreManagement" },
+  { label: "Users", icon: "people-outline", route: "SuperAdmin/users/UserManagement" },
+  { label: "Orders", icon: "receipt-outline", route: "SuperAdmin/orders/ordersManagement" },
+  { label: "Sales", icon: "bar-chart-outline", route: "SuperAdmin/sales/salesManagement" },
+  { label: "Categories", icon: "grid-outline", route: "SuperAdmin/categories/categoriesManagement" },
+  { label: "Reports", icon: "alert-circle-outline", route: "SuperAdmin/reports" },
+  { label: "Settings", icon: "settings-outline", route: "SuperAdmin/settings/systemSettings" },
+];
+
+export default function AdminPage() {
   const [hoveredRow, setHoveredRow] = useState<string | null>(null);
+  const { width } = Dimensions.get('window');
+  const isMobile = width < 830;
+
+  // sidebar state
+  const [open, setOpen] = useState(true);
+  const [activeIndex, setActiveIndex] = useState(2); // Users by default
+  const [openDrawer, setOpenDrawer] = useState(false);
+  const indicatorY = useRef(new Animated.Value(activeIndex * MENU_ITEM_HEIGHT)).current;
+  const widthAnim = useRef(new Animated.Value(OPEN_WIDTH)).current;
+  const drawerX = useSharedValue(-260);
+
+  useEffect(() => {
+    Animated.timing(indicatorY, {
+      toValue: activeIndex * MENU_ITEM_HEIGHT,
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [activeIndex]);
+
+  useEffect(() => {
+    Animated.timing(widthAnim, {
+      toValue: open ? OPEN_WIDTH : CLOSED_WIDTH,
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [open]);
+
+  const animatedDrawerStyle = useAnimatedStyle(() => ({ left: drawerX.value }));
+
+  const switchpage = (route: string, idx: number) => {
+    setActiveIndex(idx);
+    if (route) router.replace(route as any);
+    if (isMobile) {
+      drawerX.value = withTiming(-260, { duration: 300 });
+      setOpenDrawer(false);
+    }
+  };
+  const toggleDrawer = () => {
+    if (openDrawer) drawerX.value = withTiming(-260, { duration: 300 });
+    else drawerX.value = withTiming(0, { duration: 300 });
+    setOpenDrawer(!openDrawer);
+  };
 
   return (
-    <View style={styles.container}>
-      <Sidebar />
+    <View style={[styles.container, { flexDirection: isMobile ? 'column' : 'row' }]}>
+      {/* Sidebar for desktop */}
+      {!isMobile && (
+        <Animated.View style={[styles.sidebar, { width: widthAnim }]}>
+          <View style={styles.header}>
+            <Pressable onPress={() => setOpen((o) => !o)} style={styles.burgerBtn}>
+              <Ionicons name="menu" size={24} color="#f9f9f9" />
+            </Pressable>
+          </View>
+          <View style={styles.menu}>
+            <Animated.View pointerEvents="none" style={[styles.indicator, { transform: [{ translateY: indicatorY }] }]} />
+            {menuItems.map((item, idx) => {
+              const active = idx === activeIndex;
+              return (
+                <Pressable
+                  key={item.label}
+                  onPress={() => switchpage(item.route, idx)}
+                  style={({ pressed }) => [styles.item, active && styles.itemActive, pressed && styles.itemPressed]}
+                >
+                  <Ionicons name={item.icon as any} size={22} color="#f9f9f9" />
+                  {open && <Text style={[styles.itemText, active && styles.itemTextActive]}>{item.label}</Text>}
+                </Pressable>
+              );
+            })}
+          </View>
+        </Animated.View>
+      )}
 
+      {/* Drawer for mobile */}
+      {isMobile && (
+        <>
+          <TouchableOpacity style={styles.menuBtn} onPress={toggleDrawer}>
+            <Ionicons name="menu" size={24} color="#fff" />
+          </TouchableOpacity>
+          {openDrawer && <TouchableOpacity style={styles.overlay} onPress={toggleDrawer} activeOpacity={1} />}
+          <AnimatedReanimated.View style={[styles.drawer, animatedDrawerStyle]}>
+            <View style={styles.drawerHeader}>
+              <Text style={styles.drawerTitle}>Menu</Text>
+              <Pressable onPress={toggleDrawer}>
+                <Ionicons name="close" size={24} color="#2563eb" />
+              </Pressable>
+            </View>
+            {menuItems.map((item, idx) => (
+              <Pressable
+                key={item.label}
+                onPress={() => switchpage(item.route, idx)}
+                style={[styles.drawerItem, activeIndex === idx && styles.drawerItemActive]}
+              >
+                <Ionicons name={item.icon as any} size={20} color="#2563eb" />
+                <Text style={styles.drawerItemText}>{item.label}</Text>
+              </Pressable>
+            ))}
+          </AnimatedReanimated.View>
+        </>
+      )}
+
+      {/* Main Content */}
       <View style={styles.content}>
-        <View style={styles.header}>
+        <View style={styles.headerContent}>
           <Text style={styles.title}>Users</Text>
           <TouchableOpacity style={styles.addBtn}>
             <Ionicons name="add" size={20} color="#fff" />
@@ -35,15 +163,17 @@ export default function UserManagement() {
           style={styles.searchInput}
         />
 
-        <View style={styles.tableHeader}>
-          <Text style={[styles.cell, styles.headerCell]}>STUDENT'S NAME</Text>
-          <Text style={[styles.cell, styles.headerCell]}>ROLL</Text>
-          <Text style={[styles.cell, styles.headerCell]}>ADDRESS</Text>
-          <Text style={[styles.cell, styles.headerCell]}>CLASS</Text>
-          <Text style={[styles.cell, styles.headerCell]}>DATE OF BIRTH</Text>
-          <Text style={[styles.cell, styles.headerCell]}>PHONE</Text>
-          <Text style={[styles.cell, styles.headerCell]}>EDIT / DELETE</Text>
-        </View>
+        <ScrollView horizontal={true}>
+          <View style={[styles.tableHeader, { minWidth: 800 }]}>
+            <Text style={[styles.cell, styles.headerCell]}>NAME</Text>
+            <Text style={[styles.cell, styles.headerCell]}>ROLL</Text>
+            <Text style={[styles.cell, styles.headerCell]}>ADDRESS</Text>
+            <Text style={[styles.cell, styles.headerCell]}>CLASS</Text>
+            <Text style={[styles.cell, styles.headerCell]}>DOB</Text>
+            <Text style={[styles.cell, styles.headerCell]}>PHONE</Text>
+            <Text style={[styles.cell, styles.headerCell]}>EDIT / DELETE</Text>
+          </View>
+        </ScrollView>
 
         <FlatList
           data={students}
@@ -54,7 +184,8 @@ export default function UserManagement() {
               onHoverOut={() => setHoveredRow(null)}
               style={[
                 styles.row,
-                hoveredRow === item.id && styles.rowHovered
+                hoveredRow === item.id && styles.rowHovered,
+                { minWidth: 800 },
               ]}
             >
               <Text style={styles.cell}>{item.name}</Text>
@@ -112,100 +243,40 @@ export default function UserManagement() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    flex: 1,
-    backgroundColor: '#f9fafb',
-  },
-  content: {
-    flex: 1,
-    padding: 20,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#2563eb',
-  },
-  addBtn: {
-    backgroundColor: '#2563eb',
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  addText: {
-    color: '#fff',
-    fontWeight: '600',
-    marginLeft: 5,
-  },
-  searchInput: {
-    marginTop: 20,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 10,
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    fontSize: 16,
-  },
-  tableHeader: {
-    flexDirection: 'row',
-    backgroundColor: '#e5e7eb',
-    borderRadius: 8,
-    padding: 10,
-  },
-  row: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderColor: '#eee',
-    padding: 10,
-    borderRadius: 8,
-  },
-  rowHovered: {
-    backgroundColor: '#e0e7ff', 
-  },
-  cell: {
-    flex: 1,
-    fontSize: 14,
-    color: '#333',
-  },
-  Btncell: {
-    flex: 1,
-    flexDirection: 'row',
-    margin: 10,
-  },
-  EditBtn: {
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#2563eb',
-    backgroundColor: '#fff',
-    padding: 10,
-  },
-  DeleteBtn: {
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#2563eb',
-    backgroundColor: '#fff',
-    padding: 10,
-  },
-  btnHovered: {
-    backgroundColor: '#2563eb',
-  },
-  btnText: {
-    color: '#2563eb',
-    fontWeight: '600',
-  },
-  btnTextHovered: {
-    color: '#fff',
-  },
-  headerCell: {
-    fontWeight: '700',
-    color: '#2563eb',
-  },
+  container: { flex: 1, backgroundColor: '#f5f7fb' },
+  sidebar: { position: "relative", top: 24, left: 24, borderRadius: 16, overflow: "hidden", backgroundColor: "#2563eb", height: "100%", alignSelf: "stretch", zIndex: 2 },
+  header: { height: 72, flexDirection: "row", alignItems: "center", paddingRight: 20 },
+  burgerBtn: { width: 70, height: "100%", alignItems: "center", justifyContent: "center" },
+  menu: { flex: 1 },
+  indicator: { position: "absolute", left: 0, top: 0, height: MENU_ITEM_HEIGHT, width: 5, backgroundColor: "#6199f7", borderTopRightRadius: 4, borderBottomRightRadius: 4 },
+  item: { height: MENU_ITEM_HEIGHT, paddingHorizontal: 22, flexDirection: "row", alignItems: "center", gap: 16, opacity: 0.6 },
+  itemPressed: { backgroundColor: "rgba(0,0,0,0.2)" },
+  itemActive: { backgroundColor: "rgba(0,0,0,0.08)", opacity: 1 },
+  itemText: { color: "#f9f9f9", fontSize: 16 },
+  itemTextActive: { fontWeight: "600" },
+  menuBtn: { position: "absolute", top: 40, left: 20, zIndex: 20, backgroundColor: "#2563eb", padding: 10, borderRadius: 8 },
+  overlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.4)", zIndex: 9 },
+  drawer: { position: "absolute", top: 0, left: 0, width: 250, height: "100%", backgroundColor: "#fff", paddingTop: 80, paddingHorizontal: 15, borderTopRightRadius: 20, borderBottomRightRadius: 20, zIndex: 10, elevation: 10 },
+  drawerHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 15 },
+  drawerTitle: { fontSize: 18, fontWeight: "bold", color: "#2563eb" },
+  drawerItem: { flexDirection: "row", alignItems: "center", paddingVertical: 12, borderRadius: 10, marginBottom: 8 },
+  drawerItemActive: { backgroundColor: "#2563eb22" },
+  drawerItemText: { color: "#000", fontSize: 16, marginLeft: 10 },
+  content: { flex: 1, padding: 20 },
+  headerContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  title: { fontSize: 22, fontWeight: '800', color: '#2563eb' },
+  addBtn: { backgroundColor: '#2563eb', flexDirection: 'row', alignItems: 'center', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 },
+  addText: { color: '#fff', fontWeight: '600', marginLeft: 5 },
+  searchInput: { marginTop: 16, marginBottom: 12, borderWidth: 1, borderColor: '#e6eefc', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10, fontSize: 16, backgroundColor: '#fff', color: '#000' },
+  tableHeader: { flexDirection: 'row', backgroundColor: '#e6eefc', borderRadius: 12, padding: 12, marginBottom: 8 },
+  row: { flexDirection: 'row', padding: 12, borderRadius: 12, marginBottom: 6, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e6eefc' },
+  rowHovered: { backgroundColor: '#e0e7ff' },
+  cell: { flex: 1, fontSize: 14, color: '#333' },
+  Btncell: { flex: 1, flexDirection: 'row', justifyContent: 'center', marginLeft: 10 },
+  EditBtn: { borderRadius: 10, borderWidth: 1, borderColor: '#2563eb', backgroundColor: '#fff', paddingVertical: 6, paddingHorizontal: 12 },
+  DeleteBtn: { borderRadius: 10, borderWidth: 1, borderColor: '#2563eb', backgroundColor: '#fff', paddingVertical: 6, paddingHorizontal: 12 },
+  btnHovered: { backgroundColor: '#2563eb' },
+  btnText: { color: '#2563eb', fontWeight: '600' },
+  btnTextHovered: { color: '#fff' },
+  headerCell: { fontWeight: '700', color: '#2563eb', fontSize: 14 },
 });

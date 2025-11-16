@@ -23,7 +23,7 @@ const menuItems = [
   { label: "Users Management", icon: "people-outline", route: "SuperAdmin/users/UserManagement" },//finshied
   { label: "Orders Management", icon: "receipt-outline", route: "SuperAdmin/orders/ordersManagement" },//finshied
   { label: "Sales Management", icon: "bar-chart-outline", route: "SuperAdmin/sales/salesManagement" },//finished
-  { label: "Categories", icon: "grid-outline", route: "SuperAdmin/stores/categoriesManagement" },
+  { label: "Categories", icon: "grid-outline", route: "SuperAdmin/categories/categoriesManagement" },
   { label: "Reports", icon: "alert-circle-outline", route: "SuperAdmin/reports" },
   { label: "System Settings", icon: "settings-outline", route: "SuperAdmin/settings/systemSettings" },
 ];
@@ -261,3 +261,7 @@ const styles = StyleSheet.create({
   drawerItemActive: { backgroundColor: "rgba(255,255,255,0.15)", opacity: 1 },
   drawerItemText: { color: "#f9f9f9", fontSize: 16, marginLeft: 10 },
 });
+
+
+
+

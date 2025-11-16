@@ -30,12 +30,12 @@ const colors = ["#2563eb", "#16a34a", "#f59e0b", "#dc2626", "#8b5cf6"];
 
 const menuItems = [
   { label: "الصفحة الرئيسية", icon: "home-outline", route: "/dashboard/dashboard" },
-  { label: "إضافة منتج جديد", icon: "add-circle-outline", route: "/Vendor/addProduct" },
+  { label: "إضافة منتج جديد", icon: "add-circle-outline", route: "/Vendor/Product/addProduct" },
   { label: "إدارة الطلبات", icon: "receipt-outline", route: "/Vendor/ordersManagement" },
-  { label: "إدارة المراجعات", icon: "chatbubbles-outline", route: "/Vendor/reviews" },
-  { label: "إدارة المخزون", icon: "cube-outline", route: "/Vendor/inventory" },
+  { label: "إدارة المراجعات", icon: "chatbubbles-outline", route: "/Vendor/others/reviews" },
+  { label: "إدارة المخزون", icon: "cube-outline", route: "/Vendor/others/inventory" },
   { label: "إدارة التوصيلات", icon: "bicycle-outline", route: "/Vendor/deliveries" },
-  { label: "إعدادات المتجر", icon: "settings-outline", route: "/Vendor/storeSettings" },
+  { label: "إعدادات المتجر", icon: "settings-outline", route: "/Vendor/store/storeSettings" },
 ];
 
 const inventory = () => {

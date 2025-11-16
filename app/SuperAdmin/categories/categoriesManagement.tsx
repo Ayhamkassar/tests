@@ -11,17 +11,16 @@ import {
   Easing,
   useWindowDimensions,
 } from "react-native";
+import { PieChart } from "react-native-chart-kit";
 import { Ionicons } from "@expo/vector-icons";
 import AnimatedReanimated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
-import { router } from "expo-router";
+import { router, useRouter } from "expo-router";
 
-interface Report {
+interface Category {
   id: string;
-  type: "زبون" | "متجر";
-  reportedBy: string;
-  reportedOn: string;
-  reason: string;
-  status: "قيد المراجعة" | "مقبول" | "مرفوض";
+  name: string;
+  productsCount: number;
+  status: "نشط" | "غير نشط";
 }
 
 const MENU_ITEM_HEIGHT = 56;
@@ -39,21 +38,37 @@ const menuItems = [
   { label: "إعدادات النظام", icon: "settings-outline", route: "SuperAdmin/settings/systemSettings" },
 ];
 
-const MOCK_REPORTS: Report[] = [
-  { id: "R001", type: "زبون", reportedBy: "أحمد علي", reportedOn: "متجر الإلكترونيات", reason: "تأخير في التوصيل", status: "قيد المراجعة" },
-  { id: "R002", type: "متجر", reportedBy: "متجر الملابس", reportedOn: "محمد حسن", reason: "سلوك غير لائق", status: "مقبول" },
-  { id: "R003", type: "زبون", reportedBy: "سارة محمود", reportedOn: "متجر الأحذية", reason: "منتج تالف", status: "مرفوض" },
+const MOCK_CATEGORIES: Category[] = [
+  { id: "C001", name: "إلكترونيات", productsCount: 120, status: "نشط" },
+  { id: "C002", name: "ملابس", productsCount: 80, status: "نشط" },
+  { id: "C003", name: "أحذية", productsCount: 40, status: "غير نشط" },
+  { id: "C004", name: "إكسسوارات", productsCount: 60, status: "نشط" },
+  { id: "C005", name: "منزلية", productsCount: 30, status: "غير نشط" },
 ];
 
-const ReportsManagement: React.FC = () => {
+const getRandomColor = () => {
+  const letters = "0123456789ABCDEF";
+  let color = "#";
+  for (let i = 0; i < 6; i++) color += letters[Math.floor(Math.random() * 16)];
+  return color;
+};
+
+const CategoriesManagement: React.FC = () => {
   const { width } = useWindowDimensions();
-  const [reports, setReports] = useState<Report[]>(MOCK_REPORTS);
-  const [activeIndex, setActiveIndex] = useState(6); // التقارير
+  const [categories, setCategories] = useState<Category[]>(MOCK_CATEGORIES);
+  const [activeIndex, setActiveIndex] = useState(5); // الأقسام
   const [open, setOpen] = useState(true);
   const [openDrawer, setOpenDrawer] = useState(false);
 
   const isMobile = width < 830;
   const isDesktop = width >= 1024;
+  const chartWidth = isDesktop ? width * 0.45 : width - 40;
+  const router = useRouter(); // استخدام الـ router
+  const updateCategory = (updatedCategory: Category) => {
+    setCategories((prev) =>
+      prev.map((cat) => (cat.id === updatedCategory.id ? updatedCategory : cat))
+    );
+  };
 
   // Sidebar animations
   const indicatorY = useRef(new Animated.Value(activeIndex * MENU_ITEM_HEIGHT)).current;
@@ -91,10 +106,30 @@ const ReportsManagement: React.FC = () => {
     setOpenDrawer(!openDrawer);
   };
 
+  const pieData = useMemo(
+    () =>
+      categories.map((c) => ({
+        name: c.name,
+        population: c.productsCount,
+        color: getRandomColor(),
+        legendFontColor: "#000",
+        legendFontSize: 13,
+      })),
+    [categories]
+  );
+
+  const chartConfig = {
+    backgroundGradientFrom: "#fff",
+    backgroundGradientTo: "#fff",
+    decimalPlaces: 0,
+    color: (opacity = 1) => `rgba(37,99,235,${opacity})`,
+    labelColor: () => "#000",
+    propsForBackgroundLines: { stroke: "#f0f0f0" },
+  };
+
   return (
     <View style={{ flex: 1, flexDirection: isMobile ? "column" : "row" }}>
       {!isMobile ? (
-        // Sidebar Desktop
         <Animated.View style={[styles.sidebar, { width: widthAnim }]}>
           <View style={styles.headerSidebar}>
             <TouchableOpacity onPress={() => setOpen((o) => !o)} style={styles.burgerBtn}>
@@ -120,7 +155,6 @@ const ReportsManagement: React.FC = () => {
           </View>
         </Animated.View>
       ) : (
-        // Drawer Mobile
         <>
           <TouchableOpacity style={styles.menuBtn} onPress={toggleDrawer}>
             <Ionicons name="menu" size={24} color="#fff" />
@@ -147,103 +181,83 @@ const ReportsManagement: React.FC = () => {
         </>
       )}
 
-      {/* Main Content */}
       <SafeAreaView style={styles.safe}>
         <ScrollView contentContainerStyle={styles.container}>
           <View style={styles.header}>
-            <Text style={styles.title}>إدارة البلاغات</Text>
-            <Text style={styles.subtitle}>عرض جميع البلاغات المقدمة من الزبائن والمتاجر</Text>
+            <Text style={styles.title}>إدارة التصنيفات</Text>
+            <Text style={styles.subtitle}>تحكم بالتصنيفات المعروضة في النظام</Text>
+          </View>
+
+          <TouchableOpacity onPress={() => router.replace('../SuperAdmin/categories/categoriesPage')} style={styles.addBtn}>
+            <Ionicons name="add-circle-outline" size={22} color="#fff" />
+            <Text style={styles.addBtnText}>إضافة تصنيف جديد</Text>
+          </TouchableOpacity>
+
+          <View style={[styles.chartCard, isDesktop ? { width: chartWidth } : { width: "100%" }]}>
+            <Text style={styles.chartTitle}>توزيع التصنيفات حسب عدد المنتجات</Text>
+            <PieChart
+              data={pieData as any}
+              width={isDesktop ? chartWidth - 20 : chartWidth}
+              height={240}
+              chartConfig={chartConfig}
+              accessor="population"
+              backgroundColor="transparent"
+              paddingLeft="15"
+              absolute
+              style={styles.chartStyle}
+            />
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>جميع البلاغات</Text>
+            <Text style={styles.sectionTitle}>جميع التصنيفات</Text>
             <FlatList
-  data={reports}
-  keyExtractor={(item) => item.id}
-  renderItem={({ item }) => (
-    <View style={styles.row}>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.catName}>{item.type} بلاغ</Text>
-        <Text style={styles.catId}>#{item.id}</Text>
-      </View>
+              data={categories}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <View style={styles.row}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.catName}>{item.name}</Text>
+                    <Text style={styles.catId}>#{item.id}</Text>
+                  </View>
 
-      <View style={{ flex: 1, alignItems: "center" }}>
-        <Text style={styles.catProducts}>من: {item.reportedBy}</Text>
-        <Text style={styles.catProducts}>على: {item.reportedOn}</Text>
-      </View>
+                  <View style={{ flex: 1, alignItems: "center" }}>
+                    <Text style={styles.catProducts}>{item.productsCount} منتج</Text>
+                  </View>
 
-      <View style={{ flex: 1 }}>
-        <Text style={{ color: "#000" }}>{item.reason}</Text>
-      </View>
+                  <View style={{ flex: 1, alignItems: "center" }}>
+                    <Text
+                      style={[
+                        styles.status,
+                        { color: item.status === "نشط" ? "#2563eb" : "red" },
+                      ]}
+                    >
+                      {item.status}
+                    </Text>
+                  </View>
 
-      <View style={{ flex: 1, alignItems: "center" }}>
-        <Text
-          style={[
-            styles.status,
-            {
-              color:
-                item.status === "قيد المراجعة"
-                  ? "#2563eb"
-                  : item.status === "مقبول"
-                  ? "green"
-                  : "red",
-            },
-          ]}
-        >
-          {item.status}
-        </Text>
-      </View>
-
-      <View style={styles.actions}>
-        <TouchableOpacity style={styles.editBtn}>
-          <Ionicons name="create-outline" size={20} color="#fff" />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.deleteBtn}>
-          <Ionicons name="trash-outline" size={20} color="#fff" />
-        </TouchableOpacity>
-        {/* أزرار قبول ورفض */}
-        {item.status === "قيد المراجعة" && (
-          <>
-            <TouchableOpacity
-              style={styles.acceptBtn}
-              onPress={() =>
-                setReports((prev) =>
-                  prev.map((r) =>
-                    r.id === item.id ? { ...r, status: "مقبول" } : r
-                  )
-                )
-              }
-            >
-              <Ionicons name="checkmark-outline" size={20} color="#fff" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.rejectBtn}
-              onPress={() =>
-                setReports((prev) =>
-                  prev.map((r) =>
-                    r.id === item.id ? { ...r, status: "مرفوض" } : r
-                  )
-                )
-              }
-            >
-              <Ionicons name="close-outline" size={20} color="#fff" />
-            </TouchableOpacity>
-          </>
-        )}
-      </View>
-    </View>
-  )}
-  contentContainerStyle={{ paddingBottom: 60 }}
-/>
-
+                  <View style={styles.actions}>
+                    <TouchableOpacity onPress={() =>
+                router.push({
+                  pathname:'/SuperAdmin/categories/editCategoryPage',
+                  params: { category: JSON.stringify(item) }, // نرسل البيانات كـ string
+                })
+              } style={styles.editBtn}>
+                      <Ionicons name="create-outline" size={20} color="#fff" />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.deleteBtn}>
+                      <Ionicons name="trash-outline" size={20} color="#fff" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+              contentContainerStyle={{ paddingBottom: 60 }}
+            />
           </View>
         </ScrollView>
       </SafeAreaView>
     </View>
   );
 };
-
-// إعادة استخدام ستايلات السايدبار والصفحة
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#f5f7fb" },
   container: { padding: 16 },
@@ -312,19 +326,6 @@ const styles = StyleSheet.create({
     alignSelf: "stretch",
     zIndex: 2,
   },
-  acceptBtn: {
-    backgroundColor: "green",
-    padding: 6,
-    borderRadius: 6,
-    marginLeft: 4,
-  },
-  rejectBtn: {
-    backgroundColor: "orange",
-    padding: 6,
-    borderRadius: 6,
-    marginLeft: 4,
-  },
-  
   headerSidebar: { height: 72, flexDirection: "row", alignItems: "center", paddingRight: 20 },
   burgerBtn: { width: 70, height: "100%", alignItems: "center", justifyContent: "center" },
   sidebarTitle: { color: "#fff", fontWeight: "700", fontSize: 18, marginLeft: 8 },
@@ -392,4 +393,4 @@ const styles = StyleSheet.create({
   drawerItemText: { marginLeft: 12, fontSize: 16, color: "#2563eb" },
 });
 
-export default ReportsManagement;
+export default CategoriesManagement;

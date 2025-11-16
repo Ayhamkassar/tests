@@ -15,7 +15,6 @@ import VendorsSideBar from "../../dashboard/vendorsSideBar";
 
 const screenWidth = Dimensions.get("window").width;
 
-// ⭐ مثال بيانات المراجعات
 const initialReviews = [
   { id: "1", customer: "أحمد علي", rating: 5, comment: "منتج ممتاز وسريع التوصيل!" },
   { id: "2", customer: "سارة محمد", rating: 4, comment: "جيد لكن يحتاج تحسين التغليف." },
@@ -25,12 +24,12 @@ const initialReviews = [
 
 const menuItems = [
   { label: "الصفحة الرئيسية", icon: "home-outline", route: "/dashboard/dashboard" },//finishied
-  { label: "إضافة منتج جديد", icon: "add-circle-outline", route: "/Vendor/addProduct" },//finishied
+  { label: "إضافة منتج جديد", icon: "add-circle-outline", route: "/Vendor/Product/addProduct" },//finishied
   { label: "إدارة الطلبات", icon: "receipt-outline", route: "/Vendor/ordersManagement" },//finishied
-  { label: "إدارة المراجعات", icon: "chatbubbles-outline", route: "/Vendor/reviews" },//finishied
-  { label: "إدارة المخزون", icon: "cube-outline", route: "/Vendor/inventory" },
+  { label: "إدارة المراجعات", icon: "chatbubbles-outline", route: "/Vendor/others/reviews" },//finishied
+  { label: "إدارة المخزون", icon: "cube-outline", route: "/Vendor/others/inventory" },
   { label: "إدارة التوصيلات", icon: "bicycle-outline", route: "/Vendor/deliveries" },
-  { label: "إعدادات المتجر", icon: "settings-outline", route: "/Vendor/storeSettings" },
+  { label: "إعدادات المتجر", icon: "settings-outline", route: "/Vendor/store/storeSettings" },
 ];
 
 const reviews = () => {

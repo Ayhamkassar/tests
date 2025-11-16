@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,11 +8,18 @@ import {
   FlatList,
   SafeAreaView,
   useWindowDimensions,
+  Pressable,
+  Image,
+  Animated,
+  Easing,
+  Dimensions,
 } from "react-native";
 import { BarChart, PieChart } from "react-native-chart-kit";
 import { Ionicons } from "@expo/vector-icons";
-import Sidebar from "../dashboard/sidebar";
+import AnimatedReanimated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import { router } from "expo-router";
 
+// ===== Types =====
 type Range = "يومي" | "أسبوعي" | "شهري";
 
 interface Store {
@@ -31,10 +38,7 @@ interface Order {
   date: string;
 }
 
-const currency = (v: number) => v.toLocaleString() + " ل.س";
-const randomColor = () =>
-  "#" + Math.floor(Math.random() * 16777215).toString(16);
-
+// ===== Mock Data =====
 const MOCK_STORES: Store[] = [
   { id: "ST001", name: "سوريا زون", owner: "أحمد علي", sales: 3200000, orders: 142 },
   { id: "ST002", name: "الكترونيات المستقبل", owner: "رنا حسن", sales: 2750000, orders: 120 },
@@ -66,15 +70,74 @@ const PIE_SECTIONS = [
   { name: "أخرى", value: 5 },
 ];
 
+// ===== Sidebar Config =====
+const MENU_ITEM_HEIGHT = 56;
+const OPEN_WIDTH = 250;
+const CLOSED_WIDTH = 80;
+const menuItems = [
+  { label: "لوحة التحكم", icon: "speedometer-outline", route: "SuperAdmin/dashboard" },
+  { label: "إدارة المتاجر", icon: "storefront-outline", route: "SuperAdmin/stores/StoreManagement" },
+  { label: "إدارة المستخدمين", icon: "people-outline", route: "SuperAdmin/users/UserManagement" },
+  { label: "إدارة الطلبات", icon: "receipt-outline", route: "SuperAdmin/orders/ordersManagement" },
+  { label: "إدارة المبيعات", icon: "bar-chart-outline", route: "SuperAdmin/sales/salesManagement" },
+  { label: "الأقسام", icon: "grid-outline", route: "SuperAdmin/categories/categoriesManagement" },
+  { label: "التقارير", icon: "alert-circle-outline", route: "SuperAdmin/reports" },
+  { label: "إعدادات النظام", icon: "settings-outline", route: "SuperAdmin/settings/systemSettings" },
+];
+
+// ===== Utility Functions =====
+const currency = (v: number) => v.toLocaleString() + " ل.س";
+const randomColor = () => "#" + Math.floor(Math.random() * 16777215).toString(16);
+
+// ===== Main Component =====
 const SuperAdminDashboard: React.FC = () => {
   const { width } = useWindowDimensions();
   const [range, setRange] = useState<Range>("شهري");
+  const [openSidebar, setOpenSidebar] = useState(true);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [openDrawer, setOpenDrawer] = useState(false);
 
-  const isMobile = width < 830;
   const isDesktop = width >= 1024;
   const chartsWidth = isDesktop ? width * 0.45 : width - 40;
+  const isMobile = width < 830;
 
-  // الإحصائيات العامة
+  // Sidebar Animations
+  const indicatorY = useRef(new Animated.Value(activeIndex * MENU_ITEM_HEIGHT)).current;
+  const widthAnim = useRef(new Animated.Value(OPEN_WIDTH)).current;
+  const drawerX = useSharedValue(-260);
+
+  useEffect(() => {
+    Animated.timing(indicatorY, {
+      toValue: activeIndex * MENU_ITEM_HEIGHT,
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+    Animated.timing(widthAnim, {
+      toValue: openSidebar ? OPEN_WIDTH : CLOSED_WIDTH,
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [activeIndex, openSidebar]);
+
+  const animatedDrawerStyle = useAnimatedStyle(() => ({ left: drawerX.value }));
+
+  const switchPage = (route: string, idx: number) => {
+    setActiveIndex(idx);
+    if (route) router.replace(route as any);
+    if (isMobile) {
+      drawerX.value = withTiming(-260, { duration: 300 });
+      setOpenDrawer(false);
+    }
+  };
+
+  const toggleDrawer = () => {
+    drawerX.value = withTiming(openDrawer ? -260 : 0, { duration: 300 });
+    setOpenDrawer(!openDrawer);
+  };
+
+  // ===== Dashboard Stats =====
   const totalStores = MOCK_STORES.length;
   const totalOrders = MOCK_ORDERS.length;
   const totalRevenue = MOCK_STORES.reduce((a, b) => a + b.sales, 0);
@@ -105,7 +168,60 @@ const SuperAdminDashboard: React.FC = () => {
 
   return (
     <View style={{ flex: 1, flexDirection: isMobile ? "column" : "row" }}>
-      <Sidebar />
+      {/* ===== Sidebar / Drawer ===== */}
+      {!isMobile ? (
+        <Animated.View style={[styles.sidebar, { width: widthAnim }]}>
+          <View style={styles.headerSidebar}>
+            <Pressable onPress={() => setOpenSidebar((o) => !o)} style={styles.burgerBtn}>
+              <Ionicons name="menu" size={24} color="#f9f9f9" />
+            </Pressable>
+            {openSidebar && <Text style={styles.sidebarTitle}>سوريا زون</Text>}
+          </View>
+          <View style={styles.menu}>
+            <Animated.View pointerEvents="none" style={[styles.indicator, { transform: [{ translateY: indicatorY }] }]} />
+            {menuItems.map((item, idx) => {
+              const active = idx === activeIndex;
+              return (
+                <Pressable
+                  key={item.label}
+                  onPress={() => switchPage(item.route, idx)}
+                  style={({ pressed }) => [styles.item, active && styles.itemActive, pressed && styles.itemPressed]}
+                >
+                  <Ionicons name={item.icon as any} size={22} color="#f9f9f9" />
+                  {openSidebar && <Text style={[styles.itemText, active && styles.itemTextActive]}>{item.label}</Text>}
+                </Pressable>
+              );
+            })}
+          </View>
+        </Animated.View>
+      ) : (
+        <>
+          <TouchableOpacity style={styles.menuBtn} onPress={toggleDrawer}>
+            <Ionicons name="menu" size={24} color="#fff" />
+          </TouchableOpacity>
+          {openDrawer && <TouchableOpacity style={styles.overlay} onPress={toggleDrawer} activeOpacity={1} />}
+          <AnimatedReanimated.View style={[styles.drawer, animatedDrawerStyle]}>
+            <View style={styles.drawerHeader}>
+              <Text style={styles.drawerTitle}>القائمة</Text>
+              <Pressable onPress={toggleDrawer}>
+                <Ionicons name="close" size={24} color="#2563eb" />
+              </Pressable>
+            </View>
+            {menuItems.map((item, idx) => (
+              <Pressable
+                key={item.label}
+                onPress={() => switchPage(item.route, idx)}
+                style={[styles.drawerItem, activeIndex === idx && styles.drawerItemActive]}
+              >
+                <Ionicons name={item.icon as any} size={20} color="#2563eb" />
+                <Text style={styles.drawerItemText}>{item.label}</Text>
+              </Pressable>
+            ))}
+          </AnimatedReanimated.View>
+        </>
+      )}
+
+      {/* ===== Main Dashboard ===== */}
       <SafeAreaView style={styles.safe}>
         <ScrollView contentContainerStyle={styles.container}>
           <View style={styles.header}>
@@ -113,7 +229,7 @@ const SuperAdminDashboard: React.FC = () => {
             <Text style={styles.subtitle}>نظرة شاملة على أداء المنصة</Text>
           </View>
 
-          {/* الأزرار العلوية لتبديل المدة */}
+          {/* Range Buttons */}
           <View style={styles.rangeContainer}>
             {(["يومي", "أسبوعي", "شهري"] as Range[]).map((r) => (
               <TouchableOpacity
@@ -126,26 +242,23 @@ const SuperAdminDashboard: React.FC = () => {
             ))}
           </View>
 
-          {/* البطاقات */}
+          {/* Summary Cards */}
           <View style={[styles.summaryRow, isDesktop && { justifyContent: "space-between" }]}>
             <View style={[styles.summaryCard, isDesktop && { width: "23%" }]}>
               <Ionicons name="storefront-outline" size={22} color="#2563eb" />
               <Text style={styles.cardLabel}>عدد المتاجر</Text>
               <Text style={styles.cardValue}>{totalStores}</Text>
             </View>
-
             <View style={[styles.summaryCard, isDesktop && { width: "23%" }]}>
               <Ionicons name="cart-outline" size={22} color="#2563eb" />
               <Text style={styles.cardLabel}>عدد الطلبات</Text>
               <Text style={styles.cardValue}>{totalOrders}</Text>
             </View>
-
             <View style={[styles.summaryCard, isDesktop && { width: "23%" }]}>
               <Ionicons name="cash-outline" size={22} color="#2563eb" />
               <Text style={styles.cardLabel}>الإيرادات الكلية</Text>
               <Text style={styles.cardValue}>{currency(totalRevenue)}</Text>
             </View>
-
             <View style={[styles.summaryCard, isDesktop && { width: "23%" }]}>
               <Ionicons name="stats-chart-outline" size={22} color="#2563eb" />
               <Text style={styles.cardLabel}>متوسط الطلبات/متجر</Text>
@@ -153,7 +266,7 @@ const SuperAdminDashboard: React.FC = () => {
             </View>
           </View>
 
-          {/* الرسوم البيانية */}
+          {/* Charts */}
           <View style={[styles.chartsArea, isDesktop && styles.chartsAreaDesktop]}>
             <View style={[styles.chartCard, isDesktop ? { width: chartsWidth } : { width: "100%" }]}>
               <Text style={styles.chartTitle}>{range} — إجمالي الطلبات</Text>
@@ -191,7 +304,7 @@ const SuperAdminDashboard: React.FC = () => {
             </View>
           </View>
 
-          {/* الجداول */}
+          {/* Tables */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>🛍️ أحدث المتاجر</Text>
             {MOCK_STORES.map((store) => (
@@ -220,12 +333,14 @@ const SuperAdminDashboard: React.FC = () => {
               scrollEnabled={false}
             />
           </View>
+
         </ScrollView>
       </SafeAreaView>
     </View>
   );
 };
 
+// ===== Styles (merged Sidebar style from SalesManagement) =====
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#f5f7fb" },
   container: { padding: 16 },
@@ -266,6 +381,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#e6eefc",
   },
+  itemPressed: {
+    opacity: 0.6,
+  },
   chartTitle: { fontWeight: "700", fontSize: 16, marginBottom: 6 },
   chartStyle: { borderRadius: 12 },
   section: { marginTop: 6 },
@@ -276,14 +394,92 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderWidth: 1,
     borderColor: "#e6eefc",
-    borderRadius: 8,
-    padding: 10,
+    padding: 8,
+    borderRadius: 10,
     marginBottom: 6,
   },
-  col1: { flex: 1, color: "#000", fontWeight: "600" },
-  col2: { flex: 1, color: "#000" },
-  col3: { flex: 1, color: "#2563eb", textAlign: "center" },
-  col4: { flex: 1, color: "#000", textAlign: "right", fontWeight: "700" },
+  col1: { flex: 2, color: "#000" },
+  col2: { flex: 2, color: "#000" },
+  col3: { flex: 1, color: "#000" },
+  col4: { flex: 1, color: "#2563eb", fontWeight: "700" },
+
+  // Sidebar Desktop
+  sidebar: {
+    position: "relative",
+    top: 24,
+    left: 24,
+    borderRadius: 16,
+    overflow: "hidden",
+    backgroundColor: "#2563eb",
+    height: "100%",
+    alignSelf: "stretch",
+    zIndex: 2,
+  },
+  headerSidebar: { height: 72, flexDirection: "row", alignItems: "center", paddingRight: 20 },
+  burgerBtn: { width: 70, height: "100%", alignItems: "center", justifyContent: "center" },
+  sidebarTitle: { color: "#fff", fontWeight: "700", fontSize: 18, marginLeft: 8 },
+  menu: { flex: 1, paddingTop: 10 },
+  indicator: {
+    position: "absolute",
+    left: 0,
+    width: 4,
+    height: MENU_ITEM_HEIGHT,
+    backgroundColor: "#f9f9f9",
+    borderRadius: 2,
+  },
+  item: {
+    flexDirection: "row",
+    alignItems: "center",
+    height: MENU_ITEM_HEIGHT,
+    paddingHorizontal: 16,
+    marginVertical: 2,
+    borderRadius: 8,
+  },
+  itemActive: { backgroundColor: "rgba(255,255,255,0.2)" },
+  itemText: { color: "#f9f9f9", marginLeft: 12 },
+  itemTextActive: { fontWeight: "700" },
+
+  // Drawer Mobile
+  menuBtn: {
+    position: "absolute",
+    top: 40,
+    left: 16,
+    zIndex: 5,
+    backgroundColor: "#2563eb",
+    padding: 10,
+    borderRadius: 10,
+  },
+  overlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.2)",
+    zIndex: 4,
+  },
+  drawer: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    width: 260,
+    backgroundColor: "#fff",
+    zIndex: 5,
+    paddingTop: 60,
+    paddingHorizontal: 16,
+  },
+  drawerHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 24 },
+  drawerTitle: { fontSize: 18, fontWeight: "700", color: "#2563eb" },
+  drawerItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    height: MENU_ITEM_HEIGHT,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    marginBottom: 6,
+  },
+  drawerItemActive: { backgroundColor: "rgba(37, 99, 235, 0.2)" },
+  drawerItemText: { marginLeft: 12, fontSize: 16, color: "#2563eb" },
 });
 
 export default SuperAdminDashboard;

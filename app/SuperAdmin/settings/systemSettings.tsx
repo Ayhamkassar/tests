@@ -10,11 +10,11 @@ const CLOSED_WIDTH = 80;
 
 const menuItems = [
   { label: "لوحة التحكم", icon: "speedometer-outline", route: "SuperAdmin/dashboard" },
-  { label: "إدارة المتاجر", icon: "storefront-outline", route: "SuperAdmin/stores/storeManagement" },
+  { label: "إدارة المتاجر", icon: "storefront-outline", route: "SuperAdmin/stores/StoreManagement" },
   { label: "إدارة المستخدمين", icon: "people-outline", route: "SuperAdmin/users/UserManagement" },
   { label: "إدارة الطلبات", icon: "receipt-outline", route: "SuperAdmin/orders/ordersManagement" },
   { label: "إدارة المبيعات", icon: "bar-chart-outline", route: "SuperAdmin/sales/salesManagement" },
-  { label: "الأقسام", icon: "grid-outline", route: "SuperAdmin/stores/categoriesManagement" },
+  { label: "الأقسام", icon: "grid-outline", route: "SuperAdmin/categories/categoriesManagement" },
   { label: "التقارير", icon: "alert-circle-outline", route: "SuperAdmin/reports" },
   { label: "إعدادات النظام", icon: "settings-outline", route: "SuperAdmin/settings/systemSettings" },
 ];

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,11 +7,15 @@ import {
   TouchableOpacity,
   FlatList,
   SafeAreaView,
+  Dimensions,
+  Animated,
+  Easing,
   useWindowDimensions,
 } from "react-native";
 import { BarChart, PieChart } from "react-native-chart-kit";
 import { Ionicons } from "@expo/vector-icons";
-import Sidebar from "../../dashboard/sidebar";
+import AnimatedReanimated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import { router } from "expo-router";
 
 type Range = "يومي" | "أسبوعي" | "شهري";
 
@@ -23,8 +27,20 @@ interface Sale {
   category: string;
 }
 
-const currency = (v: number) => v.toLocaleString() + " ل.س";
-const randomColor = () => "#" + Math.floor(Math.random() * 16777215).toString(16);
+const MENU_ITEM_HEIGHT = 56;
+const OPEN_WIDTH = 250;
+const CLOSED_WIDTH = 80;
+
+const menuItems = [
+  { label: "لوحة التحكم", icon: "speedometer-outline", route: "SuperAdmin/dashboard" },
+  { label: "إدارة المتاجر", icon: "storefront-outline", route: "SuperAdmin/stores/StoreManagement" },
+  { label: "إدارة المستخدمين", icon: "people-outline", route: "SuperAdmin/users/UserManagement" },
+  { label: "إدارة الطلبات", icon: "receipt-outline", route: "SuperAdmin/orders/ordersManagement" },
+  { label: "إدارة المبيعات", icon: "bar-chart-outline", route: "SuperAdmin/sales/salesManagement" },
+  { label: "الأقسام", icon: "grid-outline", route: "SuperAdmin/categories/categoriesManagement" },
+  { label: "التقارير", icon: "alert-circle-outline", route: "SuperAdmin/reports" },
+  { label: "إعدادات النظام", icon: "settings-outline", route: "SuperAdmin/settings/systemSettings" },
+];
 
 const MOCK_SALES: Sale[] = [
   { id: "S001", store: "سوريا زون", total: 180000, date: "2025-11-09", category: "إلكترونيات" },
@@ -44,13 +60,23 @@ const CHARTS = {
   },
 };
 
+const currency = (v: number) => v.toLocaleString() + " ل.س";
+const randomColor = () => "#" + Math.floor(Math.random() * 16777215).toString(16);
+
 const SalesManagement: React.FC = () => {
   const { width } = useWindowDimensions();
-  const [range, setRange] = useState<Range>("شهري");
-
   const isMobile = width < 830;
   const isDesktop = width >= 1024;
   const chartsWidth = isDesktop ? width * 0.45 : width - 40;
+
+  const [range, setRange] = useState<Range>("شهري");
+  const [activeIndex, setActiveIndex] = useState(4); // إدارة المبيعات
+  const [open, setOpen] = useState(true);
+  const [openDrawer, setOpenDrawer] = useState(false);
+
+  const indicatorY = useRef(new Animated.Value(activeIndex * MENU_ITEM_HEIGHT)).current;
+  const widthAnim = useRef(new Animated.Value(OPEN_WIDTH)).current;
+  const drawerX = useSharedValue(-260);
 
   // الحسابات
   const totalSales = MOCK_SALES.length;
@@ -67,7 +93,6 @@ const SalesManagement: React.FC = () => {
   const categories = Array.from(
     MOCK_SALES.reduce((map, s) => map.set(s.category, (map.get(s.category) || 0) + 1), new Map())
   );
-
   const pieData = categories.map(([name, count]) => ({
     name,
     population: count,
@@ -85,9 +110,95 @@ const SalesManagement: React.FC = () => {
     propsForBackgroundLines: { stroke: "#f0f0f0" },
   };
 
+  // انيميشن السايدبار
+  useEffect(() => {
+    Animated.timing(indicatorY, {
+      toValue: activeIndex * MENU_ITEM_HEIGHT,
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+    Animated.timing(widthAnim, {
+      toValue: open ? OPEN_WIDTH : CLOSED_WIDTH,
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [activeIndex, open]);
+
+  const animatedDrawerStyle = useAnimatedStyle(() => ({ left: drawerX.value }));
+
+  const switchPage = (route: string, idx: number) => {
+    setActiveIndex(idx);
+    if (route) router.replace(route as any);
+    if (isMobile) {
+      drawerX.value = withTiming(-260, { duration: 300 });
+      setOpenDrawer(false);
+    }
+  };
+
+  const toggleDrawer = () => {
+    drawerX.value = withTiming(openDrawer ? -260 : 0, { duration: 300 });
+    setOpenDrawer(!openDrawer);
+  };
+
   return (
     <View style={{ flex: 1, flexDirection: isMobile ? "column" : "row" }}>
-      <Sidebar />
+      {!isMobile ? (
+        // Sidebar Desktop
+        <Animated.View style={[styles.sidebar, { width: widthAnim }]}>
+          <View style={styles.headerSidebar}>
+            <TouchableOpacity onPress={() => setOpen((o) => !o)} style={styles.burgerBtn}>
+              <Ionicons name="menu" size={24} color="#f9f9f9" />
+            </TouchableOpacity>
+            {open && <Text style={styles.sidebarTitle}>سوريا زون</Text>}
+          </View>
+          <View style={styles.menu}>
+            <Animated.View pointerEvents="none" style={[styles.indicator, { transform: [{ translateY: indicatorY }] }]} />
+            {menuItems.map((item, idx) => {
+              const active = idx === activeIndex;
+              return (
+                <TouchableOpacity
+                  key={item.label}
+                  onPress={() => switchPage(item.route, idx)}
+                  style={[styles.item, active && styles.itemActive]}
+                >
+                  <Ionicons name={item.icon as any} size={22} color="#f9f9f9" />
+                  {open && <Text style={[styles.itemText, active && styles.itemTextActive]}>{item.label}</Text>}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </Animated.View>
+      ) : (
+        // Drawer Mobile
+        <>
+          <TouchableOpacity style={styles.menuBtn} onPress={toggleDrawer}>
+            <Ionicons name="menu" size={24} color="#fff" />
+          </TouchableOpacity>
+          {openDrawer && <TouchableOpacity style={styles.overlay} onPress={toggleDrawer} activeOpacity={1} />}
+          <AnimatedReanimated.View style={[styles.drawer, animatedDrawerStyle]}>
+            <View style={styles.drawerHeader}>
+              <Text style={styles.drawerTitle}>القائمة</Text>
+              <TouchableOpacity onPress={toggleDrawer}>
+                <Ionicons name="close" size={24} color="#2563eb" />
+              </TouchableOpacity>
+            </View>
+            {menuItems.map((item, idx) => (
+              <TouchableOpacity
+                key={item.label}
+                onPress={() => switchPage(item.route, idx)}
+                style={[styles.drawerItem, activeIndex === idx && styles.drawerItemActive]}
+              >
+                <Ionicons name={item.icon as any} size={20} color="#2563eb" />
+                <Text style={styles.drawerItemText}>{item.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </AnimatedReanimated.View>
+        </>
+      )}
+
+      {/* Main Content */}
       <SafeAreaView style={styles.safe}>
         <ScrollView contentContainerStyle={styles.container}>
           <View style={styles.header}>
@@ -193,6 +304,7 @@ const SalesManagement: React.FC = () => {
   );
 };
 
+// Styles (دمج styles من الكودين)
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#f5f7fb" },
   container: { padding: 16 },
@@ -252,6 +364,85 @@ const styles = StyleSheet.create({
   col3: { flex: 1, color: "#000" },
   col4: { flex: 1, color: "#000", textAlign: "right", fontWeight: "700" },
   col5: { flex: 1, color: "#666", textAlign: "right" },
+
+  // Sidebar Desktop
+  sidebar: {
+    position: "relative",
+    top: 24,
+    left: 24,
+    borderRadius: 16,
+    overflow: "hidden",
+    backgroundColor: "#2563eb",
+    height: "100%",
+    alignSelf: "stretch",
+    zIndex: 2,
+  },
+  headerSidebar: { height: 72, flexDirection: "row", alignItems: "center", paddingRight: 20 },
+  burgerBtn: { width: 70, height: "100%", alignItems: "center", justifyContent: "center" },
+  sidebarTitle: { color: "#fff", fontWeight: "700", fontSize: 18, marginLeft: 8 },
+  menu: { flex: 1, paddingTop: 10 },
+  indicator: {
+    position: "absolute",
+    left: 0,
+    width: 4,
+    height: MENU_ITEM_HEIGHT,
+    backgroundColor: "#f9f9f9",
+    borderRadius: 2,
+  },
+  item: {
+    flexDirection: "row",
+    alignItems: "center",
+    height: MENU_ITEM_HEIGHT,
+    paddingHorizontal: 16,
+    marginVertical: 2,
+    borderRadius: 8,
+  },
+  itemActive: { backgroundColor: "rgba(255,255,255,0.2)" },
+  itemText: { color: "#f9f9f9", marginLeft: 12 },
+  itemTextActive: { fontWeight: "700" },
+
+  // Drawer Mobile
+  menuBtn: {
+    position: "absolute",
+    top: 40,
+    left: 16,
+    zIndex: 5,
+    backgroundColor: "#2563eb",
+    padding: 10,
+    borderRadius: 10,
+  },
+  overlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.2)",
+    zIndex: 4,
+  },
+  drawer: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    width: 260,
+    backgroundColor: "#fff",
+    zIndex: 5,
+    paddingTop: 60,
+    paddingHorizontal: 16,
+  },
+  drawerHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 24 },
+  drawerTitle: { fontSize: 18, fontWeight: "700", color: "#2563eb" },
+  drawerItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    height: MENU_ITEM_HEIGHT,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    marginBottom: 6,
+  },
+  drawerItemActive: { backgroundColor: "rgba(37, 99, 235, 0.2)" },
+  drawerItemText: { marginLeft: 12, fontSize: 16, color: "#2563eb" },
 });
 
 export default SalesManagement;
+
