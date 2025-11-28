@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Animated,
   Dimensions,
@@ -13,20 +13,10 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  SafeAreaView,
+  Alert,
 } from 'react-native';
 import AnimatedReanimated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
-import Sidebar from '../../dashboard/sidebar';
-
-const students = [
-  { id: '1', name: 'Eleanor Pena', roll: '#01', address: 'TA-107 Newyork', class: '01', dob: '02/05/2001', phone: '+123 8988567' },
-  { id: '2', name: 'Jessia Rose', roll: '#10', address: 'TA-107 Newyork', class: '02', dob: '03/04/2000', phone: '+123 8988568' },
-  { id: '3', name: 'Jenny Wilson', roll: '#05', address: 'Australia, Sydney', class: '02', dob: '12/05/2001', phone: '+123 8988566' },
-  { id: '4', name: 'Guy Hawkins', roll: '#03', address: 'Australia, Sydney', class: '03', dob: '03/05/2001', phone: '+123 8988565' },
-  { id: '5', name: 'Jacob Jones', roll: '#15', address: 'Australia, Sydney', class: '04', dob: '12/05/2001', phone: '+123 8988568' },
-  { id: '6', name: 'Jane Cooper', roll: '#07', address: 'Australia, Sydney', class: '01', dob: '12/05/2001', phone: '+123 8988568' },
-  { id: '7', name: 'Floyd Miles', roll: '#11', address: 'TA-107 Newyork', class: '01', dob: '03/05/2002', phone: '+123 8988569' },
-];
+import axios from 'axios';
 
 const MENU_ITEM_HEIGHT = 56;
 const OPEN_WIDTH = 250;
@@ -43,19 +33,47 @@ const menuItems = [
   { label: "Settings", icon: "settings-outline", route: "SuperAdmin/settings/systemSettings" },
 ];
 
-export default function AdminPage() {
+interface User {
+  id: number;
+  fullName: string;
+  email: string;
+  role: string;
+  hasAStore: boolean;
+  createdAt: string;
+}
+
+export default function AdminUsersPage() {
+  const [users, setUsers] = useState<User[]>([]);
   const [hoveredRow, setHoveredRow] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
   const { width } = Dimensions.get('window');
   const isMobile = width < 830;
 
-  // sidebar state
+  // Sidebar state
   const [open, setOpen] = useState(true);
-  const [activeIndex, setActiveIndex] = useState(2); // Users by default
+  const [activeIndex, setActiveIndex] = useState(2); // Users tab active
   const [openDrawer, setOpenDrawer] = useState(false);
+
   const indicatorY = useRef(new Animated.Value(activeIndex * MENU_ITEM_HEIGHT)).current;
   const widthAnim = useRef(new Animated.Value(OPEN_WIDTH)).current;
   const drawerX = useSharedValue(-260);
 
+  // Fetch users
+  const fetchUsers = async () => {
+    try {
+      const res = await axios.get('https://localhost:7084/api/user/all');
+      setUsers(res.data);
+    } catch (err) {
+      console.log(err);
+      Alert.alert('Error', 'فشل جلب المستخدمين');
+    }
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  // Sidebar animations
   useEffect(() => {
     Animated.timing(indicatorY, {
       toValue: activeIndex * MENU_ITEM_HEIGHT,
@@ -84,60 +102,84 @@ export default function AdminPage() {
       setOpenDrawer(false);
     }
   };
+
   const toggleDrawer = () => {
-    if (openDrawer) drawerX.value = withTiming(-260, { duration: 300 });
-    else drawerX.value = withTiming(0, { duration: 300 });
+    drawerX.value = withTiming(openDrawer ? -260 : 0, { duration: 300 });
     setOpenDrawer(!openDrawer);
   };
 
+  const handleDelete = (id: number) => {
+    Alert.alert('تأكيد', 'هل أنت متأكد من حذف هذا المستخدم؟', [
+      { text: 'إلغاء' },
+      {
+        text: 'حذف',
+        onPress: async () => {
+          try {
+            await axios.delete(`https://localhost:7084/api/user/${id}`);
+            setUsers(prev => prev.filter(u => u.id !== id));
+            Alert.alert('Success', 'تم حذف المستخدم');
+          } catch (err) {
+            console.log(err);
+            Alert.alert('Error', 'فشل حذف المستخدم');
+          }
+        },
+      },
+    ]);
+  };
+
+  const filteredUsers = users.filter(u => u.fullName.toLowerCase().includes(search.toLowerCase()));
+
   return (
     <View style={[styles.container, { flexDirection: isMobile ? 'column' : 'row' }]}>
-      {/* Sidebar for desktop */}
+      {/* Sidebar Desktop */}
       {!isMobile && (
         <Animated.View style={[styles.sidebar, { width: widthAnim }]}>
-          <View style={styles.header}>
-            <Pressable onPress={() => setOpen((o) => !o)} style={styles.burgerBtn}>
-              <Ionicons name="menu" size={24} color="#f9f9f9" />
+          <View style={styles.sidebarHeader}>
+            <Pressable onPress={() => setOpen(!open)} style={styles.burgerBtn}>
+              <Ionicons name="menu" size={24} color="#fff" />
             </Pressable>
           </View>
+
           <View style={styles.menu}>
-            <Animated.View pointerEvents="none" style={[styles.indicator, { transform: [{ translateY: indicatorY }] }]} />
-            {menuItems.map((item, idx) => {
-              const active = idx === activeIndex;
-              return (
-                <Pressable
-                  key={item.label}
-                  onPress={() => switchpage(item.route, idx)}
-                  style={({ pressed }) => [styles.item, active && styles.itemActive, pressed && styles.itemPressed]}
-                >
-                  <Ionicons name={item.icon as any} size={22} color="#f9f9f9" />
-                  {open && <Text style={[styles.itemText, active && styles.itemTextActive]}>{item.label}</Text>}
-                </Pressable>
-              );
-            })}
+            <Animated.View
+              pointerEvents="none"
+              style={[styles.indicator, { transform: [{ translateY: indicatorY }] }]}
+            />
+
+            {menuItems.map((item, idx) => (
+              <Pressable
+                key={item.label}
+                onPress={() => switchpage(item.route, idx)}
+                style={[styles.item, idx === activeIndex && styles.itemActive]}
+              >
+                <Ionicons name={item.icon as any} size={22} color="#fff" />
+                {open && <Text style={styles.itemText}>{item.label}</Text>}
+              </Pressable>
+            ))}
           </View>
         </Animated.View>
       )}
 
-      {/* Drawer for mobile */}
+      {/* Mobile Drawer */}
       {isMobile && (
         <>
           <TouchableOpacity style={styles.menuBtn} onPress={toggleDrawer}>
             <Ionicons name="menu" size={24} color="#fff" />
           </TouchableOpacity>
-          {openDrawer && <TouchableOpacity style={styles.overlay} onPress={toggleDrawer} activeOpacity={1} />}
+          {openDrawer && <TouchableOpacity style={styles.overlay} onPress={toggleDrawer} />}
           <AnimatedReanimated.View style={[styles.drawer, animatedDrawerStyle]}>
             <View style={styles.drawerHeader}>
-              <Text style={styles.drawerTitle}>Menu</Text>
+              <Text style={styles.drawerHeaderText}>القائمة</Text>
               <Pressable onPress={toggleDrawer}>
                 <Ionicons name="close" size={24} color="#2563eb" />
               </Pressable>
             </View>
+
             {menuItems.map((item, idx) => (
               <Pressable
                 key={item.label}
                 onPress={() => switchpage(item.route, idx)}
-                style={[styles.drawerItem, activeIndex === idx && styles.drawerItemActive]}
+                style={[styles.drawerItem, idx === activeIndex && styles.drawerItemActive]}
               >
                 <Ionicons name={item.icon as any} size={20} color="#2563eb" />
                 <Text style={styles.drawerItemText}>{item.label}</Text>
@@ -150,7 +192,7 @@ export default function AdminPage() {
       {/* Main Content */}
       <View style={styles.content}>
         <View style={styles.headerContent}>
-          <Text style={styles.title}>Users</Text>
+          <Text style={styles.title}>Users Management</Text>
           <TouchableOpacity style={styles.addBtn}>
             <Ionicons name="add" size={20} color="#fff" />
             <Text style={styles.addText}>Add User</Text>
@@ -158,85 +200,64 @@ export default function AdminPage() {
         </View>
 
         <TextInput
-          placeholder="Search by name or roll"
+          placeholder="Search by name"
           placeholderTextColor="#999"
           style={styles.searchInput}
+          value={search}
+          onChangeText={setSearch}
         />
 
-        <ScrollView horizontal={true}>
-          <View style={[styles.tableHeader, { minWidth: 800 }]}>
-            <Text style={[styles.cell, styles.headerCell]}>NAME</Text>
-            <Text style={[styles.cell, styles.headerCell]}>ROLL</Text>
-            <Text style={[styles.cell, styles.headerCell]}>ADDRESS</Text>
-            <Text style={[styles.cell, styles.headerCell]}>CLASS</Text>
-            <Text style={[styles.cell, styles.headerCell]}>DOB</Text>
-            <Text style={[styles.cell, styles.headerCell]}>PHONE</Text>
-            <Text style={[styles.cell, styles.headerCell]}>EDIT / DELETE</Text>
-          </View>
-        </ScrollView>
+<ScrollView horizontal={isMobile} style={{ flex: 1 }}>
+  <View>
+    {/* Table Header */}
+    <View style={[styles.tableHeader, { minWidth: isMobile ? 850 : "100%" }]}>
+      <Text style={[styles.cell, styles.headerCell]}>Full Name</Text>
+      <Text style={[styles.cell, styles.headerCell]}>Email</Text>
+      <Text style={[styles.cell, styles.headerCell]}>Role</Text>
+      <Text style={[styles.cell, styles.headerCell]}>Has Store</Text>
+      <Text style={[styles.cell, styles.headerCell]}>Created At</Text>
+      <Text style={[styles.cell, styles.headerCell]}>Actions</Text>
+    </View>
 
-        <FlatList
-          data={students}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <Pressable
-              onHoverIn={() => setHoveredRow(item.id)}
-              onHoverOut={() => setHoveredRow(null)}
-              style={[
-                styles.row,
-                hoveredRow === item.id && styles.rowHovered,
-                { minWidth: 800 },
-              ]}
-            >
-              <Text style={styles.cell}>{item.name}</Text>
-              <Text style={styles.cell}>{item.roll}</Text>
-              <Text style={styles.cell}>{item.address}</Text>
-              <Text style={styles.cell}>{item.class}</Text>
-              <Text style={styles.cell}>{item.dob}</Text>
-              <Text style={styles.cell}>{item.phone}</Text>
+    {/* Table Rows */}
+    <FlatList
+      data={filteredUsers}
+      keyExtractor={(item) => item.id.toString()}
+      renderItem={({ item }) => (
+        <Pressable
+          onHoverIn={() => setHoveredRow(item.id.toString())}
+          onHoverOut={() => setHoveredRow(null)}
+          style={[
+            styles.row,
+            hoveredRow === item.id.toString() && styles.rowHovered,
+            { minWidth: isMobile ? 850 : "100%" },
+          ]}
+        >
+          <Text style={styles.cell}>{item.fullName}</Text>
+          <Text style={styles.cell}>{item.email}</Text>
+          <Text style={styles.cell}>{item.role}</Text>
+          <Text style={styles.cell}>{item.hasAStore ? "Yes" : "No"}</Text>
+          <Text style={styles.cell}>{new Date(item.createdAt).toLocaleDateString()}</Text>
 
-              <View style={styles.Btncell}>
-                <Pressable
-                  onHoverIn={() => setHoveredRow(item.id + '-edit')}
-                  onHoverOut={() => setHoveredRow(null)}
-                  style={[
-                    styles.EditBtn,
-                    hoveredRow === item.id + '-edit' && styles.btnHovered
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.btnText,
-                      hoveredRow === item.id + '-edit' && styles.btnTextHovered
-                    ]}
-                  >
-                    Edit
-                  </Text>
-                </Pressable>
-
-                <View style={{ margin: 7 }} />
-
-                <Pressable
-                  onHoverIn={() => setHoveredRow(item.id + '-delete')}
-                  onHoverOut={() => setHoveredRow(null)}
-                  style={[
-                    styles.DeleteBtn,
-                    hoveredRow === item.id + '-delete' && styles.btnHovered
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.btnText,
-                      hoveredRow === item.id + '-delete' && styles.btnTextHovered
-                    ]}
-                  >
-                    Delete
-                  </Text>
-                </Pressable>
-              </View>
+          <View style={styles.cellBtns}>
+            <Pressable style={styles.EditBtn}>
+              <Text style={styles.btnText}>Edit</Text>
             </Pressable>
-          )}
-        />
+
+            <View style={{ width: 8 }} />
+
+            <Pressable
+              onPress={() => handleDelete(item.id)}
+              style={styles.DeleteBtn}
+            >
+              <Text style={styles.btnTextDelete}>Delete</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      )}
+    />
+  </View>
+</ScrollView>
       </View>
     </View>
   );
@@ -244,39 +265,55 @@ export default function AdminPage() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f7fb' },
-  sidebar: { position: "relative", top: 24, left: 24, borderRadius: 16, overflow: "hidden", backgroundColor: "#2563eb", height: "100%", alignSelf: "stretch", zIndex: 2 },
-  header: { height: 72, flexDirection: "row", alignItems: "center", paddingRight: 20 },
-  burgerBtn: { width: 70, height: "100%", alignItems: "center", justifyContent: "center" },
+  sidebar: { backgroundColor: '#2563eb', paddingTop: 30, height: '100%', borderRadius: 16, margin: 20 },
+  sidebarHeader: { height: 70, paddingLeft: 20, justifyContent: 'center' },
+  burgerBtn: { width: 50, height: 50, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   menu: { flex: 1 },
-  indicator: { position: "absolute", left: 0, top: 0, height: MENU_ITEM_HEIGHT, width: 5, backgroundColor: "#6199f7", borderTopRightRadius: 4, borderBottomRightRadius: 4 },
-  item: { height: MENU_ITEM_HEIGHT, paddingHorizontal: 22, flexDirection: "row", alignItems: "center", gap: 16, opacity: 0.6 },
-  itemPressed: { backgroundColor: "rgba(0,0,0,0.2)" },
-  itemActive: { backgroundColor: "rgba(0,0,0,0.08)", opacity: 1 },
-  itemText: { color: "#f9f9f9", fontSize: 16 },
-  itemTextActive: { fontWeight: "600" },
-  menuBtn: { position: "absolute", top: 40, left: 20, zIndex: 20, backgroundColor: "#2563eb", padding: 10, borderRadius: 8 },
-  overlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.4)", zIndex: 9 },
-  drawer: { position: "absolute", top: 0, left: 0, width: 250, height: "100%", backgroundColor: "#fff", paddingTop: 80, paddingHorizontal: 15, borderTopRightRadius: 20, borderBottomRightRadius: 20, zIndex: 10, elevation: 10 },
-  drawerHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 15 },
-  drawerTitle: { fontSize: 18, fontWeight: "bold", color: "#2563eb" },
-  drawerItem: { flexDirection: "row", alignItems: "center", paddingVertical: 12, borderRadius: 10, marginBottom: 8 },
-  drawerItemActive: { backgroundColor: "#2563eb22" },
-  drawerItemText: { color: "#000", fontSize: 16, marginLeft: 10 },
+  item: { flexDirection: 'row', alignItems: 'center', height: MENU_ITEM_HEIGHT, gap: 16, paddingHorizontal: 22, opacity: 0.7 },
+  itemActive: { backgroundColor: 'rgba(255,255,255,0.15)', opacity: 1 },
+  itemText: { color: '#fff', fontSize: 16, fontWeight: '500' },
+  indicator: { position: 'absolute', left: 0, width: 6, height: MENU_ITEM_HEIGHT, backgroundColor: '#fff', borderRadius: 4 },
+
+  menuBtn: { position: 'absolute', top: 40, left: 20, zIndex: 10, backgroundColor: '#2563eb', padding: 10, borderRadius: 10 },
+  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.4)', zIndex: 9 },
+  drawer: { position: 'absolute', width: 260, height: '100%', backgroundColor: '#fff', paddingTop: 80, paddingHorizontal: 15, zIndex: 20 },
+  drawerHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
+  drawerHeaderText: { fontSize: 18, fontWeight: '700', color: '#2563eb' },
+  drawerItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, marginBottom: 8 },
+  drawerItemActive: { backgroundColor: '#e0ecff', borderRadius: 8 },
+  drawerItemText: { marginLeft: 10, fontSize: 16, color: '#000' },
+
   content: { flex: 1, padding: 20 },
-  headerContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  title: { fontSize: 22, fontWeight: '800', color: '#2563eb' },
-  addBtn: { backgroundColor: '#2563eb', flexDirection: 'row', alignItems: 'center', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 },
-  addText: { color: '#fff', fontWeight: '600', marginLeft: 5 },
-  searchInput: { marginTop: 16, marginBottom: 12, borderWidth: 1, borderColor: '#e6eefc', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10, fontSize: 16, backgroundColor: '#fff', color: '#000' },
-  tableHeader: { flexDirection: 'row', backgroundColor: '#e6eefc', borderRadius: 12, padding: 12, marginBottom: 8 },
-  row: { flexDirection: 'row', padding: 12, borderRadius: 12, marginBottom: 6, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e6eefc' },
-  rowHovered: { backgroundColor: '#e0e7ff' },
+  headerContent: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15, alignItems: 'center' },
+  title: { fontSize: 24, fontWeight: '800', color: '#2563eb' },
+  addBtn: { backgroundColor: '#2563eb', flexDirection: 'row', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12, alignItems: 'center' },
+  addText: { color: '#fff', fontWeight: '600', marginLeft: 4 },
+  searchInput: { marginTop: 10, marginBottom: 14, backgroundColor: '#fff', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', fontSize: 15 },
+
+  tableHeader: { flexDirection: 'row', backgroundColor: '#e7efff', padding: 14, borderRadius: 12, marginBottom: 10 },
+  headerCell: { fontWeight: '700', fontSize: 14, color: '#2563eb' },
+
+  row: { flexDirection: 'row', padding: 14, borderRadius: 12, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', marginBottom: 8 },
+  rowHovered: { backgroundColor: '#eef3ff' },
   cell: { flex: 1, fontSize: 14, color: '#333' },
-  Btncell: { flex: 1, flexDirection: 'row', justifyContent: 'center', marginLeft: 10 },
-  EditBtn: { borderRadius: 10, borderWidth: 1, borderColor: '#2563eb', backgroundColor: '#fff', paddingVertical: 6, paddingHorizontal: 12 },
-  DeleteBtn: { borderRadius: 10, borderWidth: 1, borderColor: '#2563eb', backgroundColor: '#fff', paddingVertical: 6, paddingHorizontal: 12 },
-  btnHovered: { backgroundColor: '#2563eb' },
+  Btncell: { flex: 1, flexDirection: 'row', justifyContent: 'center' },
+  EditBtn: { 
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: "#2563eb20", },
+  DeleteBtn: {    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: "#ff3b3020", },
+  cellBtns: {
+    flex: 1,
+    flexDirection: "row",
+    justifyContent: "center",
+  },
   btnText: { color: '#2563eb', fontWeight: '600' },
-  btnTextHovered: { color: '#fff' },
-  headerCell: { fontWeight: '700', color: '#2563eb', fontSize: 14 },
+  btnTextDelete: {
+    color: "#d62828",
+    fontWeight: "600",
+  },
 });

@@ -1,0 +1,85 @@
+import { StyleSheet, Dimensions } from "react-native";
+
+export const screenWidth = Dimensions.get("window").width;
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    flexDirection: screenWidth >= 1024 ? "row" : "column",
+    backgroundColor: "#f5f5f5",
+  },
+
+  content: { flex: 1, backgroundColor: "#fff" },
+  contentContainer: { padding: 15 },
+
+  pageTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+    marginBottom: 20,
+    textAlign: "center",
+    color: "#000",
+  },
+
+  // Chart
+  chartContainer: {
+    marginBottom: 20,
+    backgroundColor: "#fff",
+    borderRadius: 15,
+    padding: 10,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: "#2563eb33",
+  },
+  chartTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 10,
+  },
+
+  // Product Card
+  productCard: {
+    flexDirection: "row",
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 15,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: "#2563eb33",
+  },
+  productImage: { width: 100, height: 100, borderRadius: 10 },
+  productName: { fontSize: 16, fontWeight: "bold", color: "#000" },
+  productCategory: { fontSize: 14, color: "#6b7280", marginTop: 2 },
+  productPrice: { fontSize: 15, color: "#000", fontWeight: "bold", marginTop: 2 },
+  productStock: { fontSize: 14, marginTop: 2, color: "#16a34a" },
+
+  actions: { flexDirection: "row", marginTop: 8 },
+  editBtn: { backgroundColor: "#2563eb", borderRadius: 6, paddingVertical: 5, paddingHorizontal: 15, marginRight: 10 },
+  editText: { color: "#fff", fontWeight: "bold" },
+  deleteBtn: { backgroundColor: "red", borderRadius: 6, paddingVertical: 5, paddingHorizontal: 15 },
+  deleteText: { color: "#fff", fontWeight: "bold" },
+
+  // Drawer Menu
+  menuBtn: { position: "absolute", top: 40, left: 20, zIndex: 20, backgroundColor: "#2563eb", padding: 10, borderRadius: 8 },
+  overlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.4)", zIndex: 9 },
+  drawer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: 260,
+    height: "100%",
+    backgroundColor: "#fff",
+    paddingTop: 80,
+    paddingHorizontal: 15,
+    borderTopRightRadius: 20,
+    borderBottomRightRadius: 20,
+    zIndex: 10,
+    elevation: 10,
+  },
+  drawerTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 15, color: "#2563eb" },
+  drawerItem: { flexDirection: "row", alignItems: "center", paddingVertical: 12, borderRadius: 10, marginBottom: 8 },
+  drawerText: { color: "#000", fontSize: 16, marginLeft: 10 },
+});
+
+export default styles;

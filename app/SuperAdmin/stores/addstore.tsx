@@ -18,6 +18,7 @@ export default function AddStoreScreen({ navigation }: { navigation: any }) {
   const [owner, setOwner] = useState('');
   const [storeName, setStoreName] = useState('');
   const [description, setDescription] = useState('');
+  const [phone, setPhone] = useState('');
   const [logoUri, setLogoUri] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -71,6 +72,21 @@ export default function AddStoreScreen({ navigation }: { navigation: any }) {
         console.warn('Error reading userName from AsyncStorage', err);
       }
     })();
+    (async () => {
+      try {
+        const userId = await AsyncStorage.getItem('userId');
+        if (!userId) return;
+    
+        const res = await axios.get(`https://localhost:7084/api/User/${userId}`);
+        if (res.data) {
+          setOwner(res.data.fullName);
+        }
+    
+      } catch (err) {
+        console.warn("Error fetching user from server", err);
+      }
+    })();
+    
   }, [fadeAnim, slideAnim, cardAnimations]);
 
   const openImagePicker = () => {
@@ -136,38 +152,55 @@ export default function AddStoreScreen({ navigation }: { navigation: any }) {
 
   const handleSubmit = async () => {
     if (!validate()) return;
-
+  
     setLoading(true);
-
+  
     try {
       const token = await AsyncStorage.getItem('authToken');
       const userId = await AsyncStorage.getItem('userId');
-if (!userId) {
-  showSnack('حدث خطأ: المستخدم غير مسجل');
-  return;
-}
-      let payload: any = {
-        name: storeName.trim(),
-        desception: description ? description.trim() : '',
-        logofile: imageBase64 || "test",
-      };
-
+      if (!userId) {
+        showSnack('حدث خطأ: المستخدم غير مسجل');
+        setLoading(false);
+        return;
+      }
+  
       const headers: Record<string, string> = {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
       };
-
-      if (token) {
-        headers.Authorization = `Bearer ${token}`;
+      if (token) headers.Authorization = `Bearer ${token}`;
+  
+      // التحقق إذا عنده متجر
+      const checkStoreUrl = `https://localhost:7084/api/Store/ByUser/${userId}`;
+      try {
+        const existingStore = await axios.get(checkStoreUrl, { headers, timeout: 10000 });
+        if (existingStore && existingStore.data) {
+          showSnack('لديك متجر بالفعل ولا يمكنك إنشاء متجر آخر');
+          setLoading(false);
+          return;
+        }
+      } catch (err: any) {
+        if (err.response && err.response.status !== 404) {
+          // أي خطأ غير 404 (يعني غير موجود متجر) نعرضه
+          showSnack('حدث خطأ أثناء التحقق من المتجر');
+          setLoading(false);
+          return;
+        }
+        // إذا 404 يعني ما عنده متجر => نكمل
       }
-
-      const API_URL = `https://localhost:7109/api/Store/AddStore?User_Id=${userId}`;
-
-      const res = await axios.post(API_URL, payload, {
-        headers,
-        timeout: 30000,
-      });
-
+  
+      const payload = {
+        name: storeName.trim(),
+        description: description ? description.trim() : '',
+        logo: imageBase64 || 'test',
+        userId: Number(userId),
+        phone: phone
+      };
+  
+      const addStoreUrl = `https://localhost:7084/api/Stores/create`;
+      const res = await axios.post(addStoreUrl, payload, { headers, timeout: 30000 });
+      console.log(payload)
+      
       if (res && (res.status === 200 || res.status === 201)) {
         showSnack('تم إضافة المتجر بنجاح');
         const newStore = res.data;
@@ -179,24 +212,12 @@ if (!userId) {
       }
     } catch (err: any) {
       console.warn('Error submitting store:', err);
-
-      if (err.response) {
-        const errorMessage =
-          err.response.data?.message ||
-          err.response.data?.error ||
-          'خطأ من السيرفر';
-        showSnack(`خطأ: ${errorMessage}`);
-      } else if (err.request) {
-        showSnack('خطأ في الاتصال بالإنترنت');
-      } else if (err.code === 'ECONNABORTED') {
-        showSnack('انتهت مهلة الاتصال، حاول مرة أخرى');
-      } else {
-        showSnack('حصل خطأ أثناء إرسال البيانات');
-      }
+      showSnack('حصل خطأ أثناء إرسال البيانات');
     } finally {
       setLoading(false);
     }
   };
+  
 
   return (
     <Animated.View style={[styles.container, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
@@ -220,7 +241,9 @@ if (!userId) {
           })}]
         }]}>
           <Text style={styles.label}>المالك</Text>
-          <TextInput style={styles.input} value={owner} onChangeText={setOwner} placeholder="اسم المالك" placeholderTextColor="#666" />
+          <TextInput style={[styles.input, { backgroundColor: '#f0f0f0' }]} value={owner} onChangeText={setOwner} placeholder="اسم المالك" placeholderTextColor="#666" 
+          editable={false}
+/>
         </Animated.View>
 
         <Animated.View style={[styles.card, { 
@@ -243,6 +266,12 @@ if (!userId) {
         }]}>
           <Text style={styles.label}>الوصف</Text>
           <TextInput style={[styles.input, styles.textarea]} multiline numberOfLines={4} value={description} onChangeText={setDescription} placeholder="وصف المتجر (اختياري)" placeholderTextColor="#666" />
+          <Text style={styles.label}>رقم الهاتف</Text>
+          <TextInput style={styles.input} 
+          value={phone} 
+          onChangeText={setPhone} 
+          placeholder="رقم الهاتف للتواصل بين العميل و المتجر"  
+          placeholderTextColor="#666" />
         </Animated.View>
 
         <Animated.View style={[styles.card, { 

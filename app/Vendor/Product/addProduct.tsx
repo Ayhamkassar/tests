@@ -1,14 +1,7 @@
 import React, { useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-  Image,
-} from "react-native";
-import * as ImagePicker from "react-native-image-picker";
+import { ScrollView, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import ProductInput from "../../../components/Product/ProductInput";
+import ProductImages from "../../../components/Product/ProductImages";
 
 interface Product {
   name: string;
@@ -29,89 +22,86 @@ const AddProductPage: React.FC = () => {
     images: [],
   });
 
-  const handleChange = (field: keyof Product, value: string) => {
-    setProduct({ ...product, [field]: value });
-  };
+  const handleAddProduct = async () => {
+    if (!product.name || !product.price || !product.category) {
+      return Alert.alert("الرجاء ملء جميع الحقول المطلوبة.");
+    }
 
-  const pickImages = () => {
-    ImagePicker.launchImageLibrary(
-      {
-        mediaType: "photo",
-        selectionLimit: 5,
-        quality: 0.7,
-      },
-      (response) => {
-        if (response.assets && response.assets.length > 0) {
-          const newImages = response.assets.map((asset) => asset.uri!);
-          setProduct({ ...product, images: [...product.images, ...newImages] });
-        }
-      }
-    );
-  };
+    const payload = {
+      title: product.name,
+      description: product.description,
+      price: Number(product.price),
+      categoryId: Number(product.category),
+      imageUrls: product.images,
+    };
 
-  const removeImage = (index: number) => {
-    const updatedImages = product.images.filter((_, i) => i !== index);
-    setProduct({ ...product, images: updatedImages });
-  };
+    try {
+      const response = await fetch("https://localhost:7084/api/Product", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
-  const handleAddProduct = () => {
-    console.log("✅ تمت إضافة المنتج:", product);
-    // هنا ممكن تعمل API call
+      const msg = await response.text();
+      console.log("📥 رد الخادم:", msg);
+
+      if (!response.ok) throw new Error("فشل الإرسال");
+
+      Alert.alert("تمت إضافة المنتج بنجاح");
+      setProduct({ name: "", price: "", stock: "", category: "", description: "", images: [] });
+    } catch (error) {
+      console.log("❌ خطأ:", error);
+      Alert.alert("حدث خطأ أثناء إضافة المنتج");
+    }
   };
 
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.title}>إضافة منتج جديد</Text>
 
-      {[
-        { label: "اسم المنتج", key: "name", placeholder: "أدخل اسم المنتج" },
-        { label: "السعر (ل.س)", key: "price", placeholder: "أدخل السعر", numeric: true },
-        { label: "الكمية بالمخزون", key: "stock", placeholder: "أدخل الكمية", numeric: true },
-        { label: "التصنيف", key: "category", placeholder: "أدخل تصنيف المنتج" },
-      ].map((item) => (
-        <View style={styles.formGroup} key={item.key}>
-          <Text style={styles.label}>{item.label}</Text>
-          <TextInput
-            style={styles.input}
-            placeholder={item.placeholder}
-            keyboardType={item.numeric ? "numeric" : "default"}
-            value={(product as any)[item.key]}
-            onChangeText={(v) => handleChange(item.key as keyof Product, v)}
-          />
-        </View>
-      ))}
+      <ProductInput
+        label="اسم المنتج"
+        value={product.name}
+        placeholder="أدخل اسم المنتج"
+        onChange={v => setProduct(prev => ({ ...prev, name: v }))}
+      />
 
-      {/* الوصف */}
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>الوصف</Text>
-        <TextInput
-          style={[styles.input, { height: 100 }]}
-          multiline
-          placeholder="أدخل وصف المنتج"
-          value={product.description}
-          onChangeText={(v) => handleChange("description", v)}
-        />
-      </View>
+      <ProductInput
+        label="السعر (ل.س)"
+        value={product.price}
+        placeholder="أدخل السعر"
+        numeric
+        onChange={v => setProduct(prev => ({ ...prev, price: v }))}
+      />
 
-      {/* اختيار الصور */}
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>صور المنتج</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {product.images.map((uri, idx) => (
-            <View key={idx} style={styles.imageWrapper}>
-              <Image source={{ uri }} style={styles.imagePreview} />
-              <TouchableOpacity style={styles.removeBtn} onPress={() => removeImage(idx)}>
-                <Text style={{ color: "#fff", fontWeight: "bold" }}>×</Text>
-              </TouchableOpacity>
-            </View>
-          ))}
-          <TouchableOpacity style={styles.addImageBtn} onPress={pickImages}>
-            <Text style={{ color: "#2563eb", fontWeight: "bold" }}>+</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </View>
+      <ProductInput
+        label="الكمية بالمخزون"
+        value={product.stock}
+        placeholder="أدخل الكمية"
+        numeric
+        onChange={v => setProduct(prev => ({ ...prev, stock: v }))}
+      />
 
-      {/* زر الإضافة */}
+      <ProductInput
+        label="التصنيف"
+        value={product.category}
+        placeholder="أدخل تصنيف المنتج"
+        onChange={v => setProduct(prev => ({ ...prev, category: v }))}
+      />
+
+      <ProductInput
+        label="الوصف"
+        value={product.description}
+        placeholder="أدخل وصف المنتج"
+        multiline
+        onChange={v => setProduct(prev => ({ ...prev, description: v }))}
+      />
+
+      <ProductImages
+        images={product.images}
+        setImages={images => setProduct(prev => ({ ...prev, images }))}
+      />
+
       <TouchableOpacity style={styles.btn} onPress={handleAddProduct}>
         <Text style={styles.btnText}>إضافة المنتج</Text>
       </TouchableOpacity>
@@ -122,17 +112,6 @@ const AddProductPage: React.FC = () => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff", padding: 20 },
   title: { fontSize: 22, fontWeight: "bold", color: "#000", textAlign: "center", marginBottom: 20 },
-  formGroup: { marginBottom: 15 },
-  label: { fontSize: 14, color: "#000", marginBottom: 5 },
-  input: {
-    borderWidth: 1,
-    borderColor: "#2563eb",
-    borderRadius: 10,
-    padding: 10,
-    fontSize: 14,
-    color: "#000",
-    backgroundColor: "#fff",
-  },
   btn: {
     backgroundColor: "#2563eb",
     paddingVertical: 12,
@@ -140,29 +119,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   btnText: { color: "#fff", textAlign: "center", fontWeight: "bold", fontSize: 15 },
-  imagePreview: { width: 80, height: 80, borderRadius: 10 },
-  addImageBtn: {
-    width: 80,
-    height: 80,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: "#2563eb",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 10,
-  },
-  imageWrapper: { marginRight: 10 },
-  removeBtn: {
-    position: "absolute",
-    top: -5,
-    right: -5,
-    backgroundColor: "#dc2626",
-    borderRadius: 10,
-    width: 20,
-    height: 20,
-    justifyContent: "center",
-    alignItems: "center",
-  },
 });
 
 export default AddProductPage;

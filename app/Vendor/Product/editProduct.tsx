@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
+import { ScrollView, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import ProductInput from "../../../components/Product/ProductInput";
 
 interface Product {
   id: string;
@@ -33,46 +34,43 @@ const EditProductPage: React.FC = () => {
   }, [initialProduct]);
 
   const handleChange = (field: keyof Product, value: string) => {
-    setProduct({ ...product, [field]: value });
+    setProduct(prev => ({ ...prev, [field]: value }));
   };
 
   const handleUpdateProduct = () => {
-    console.log("✏️ تم تعديل المنتج:", product);
-    // هون بتحط API لتحديث المنتج لاحقاً باستخدام product.id
+    console.log("تم تعديل المنتج:", product);
+    Alert.alert("تم حفظ التعديلات بنجاح");
     router.back();
   };
 
+  const fields = [
+    { label: "اسم المنتج", key: "name" },
+    { label: "السعر (ل.س)", key: "price", numeric: true },
+    { label: "الكمية بالمخزون", key: "stock", numeric: true },
+    { label: "التصنيف", key: "category" },
+    { label: "رابط الصورة", key: "image" },
+  ];
+
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>✏️ تعديل المنتج</Text>
+      <Text style={styles.title}>تعديل المنتج</Text>
 
-      {[
-        { label: "اسم المنتج", key: "name" },
-        { label: "السعر (ل.س)", key: "price", numeric: true },
-        { label: "الكمية بالمخزون", key: "stock", numeric: true },
-        { label: "التصنيف", key: "category" },
-        { label: "رابط الصورة", key: "image" },
-      ].map((item) => (
-        <View style={styles.formGroup} key={item.key}>
-          <Text style={styles.label}>{item.label}</Text>
-          <TextInput
-            style={styles.input}
-            keyboardType={item.numeric ? "numeric" : "default"}
-            value={String((product as any)[item.key] || "")}
-            onChangeText={(v) => handleChange(item.key as keyof Product, v)}
-          />
-        </View>
+      {fields.map(field => (
+        <ProductInput
+          key={field.key}
+          label={field.label}
+          value={String((product as any)[field.key] || "")}
+          numeric={field.numeric}
+          onChange={v => handleChange(field.key as keyof Product, v)}
+        />
       ))}
 
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>الوصف</Text>
-        <TextInput
-          style={[styles.input, { height: 100 }]}
-          multiline
-          value={product.description}
-          onChangeText={(v) => handleChange("description", v)}
-        />
-      </View>
+      <ProductInput
+        label="الوصف"
+        value={product.description}
+        multiline
+        onChange={v => handleChange("description", v)}
+      />
 
       <TouchableOpacity style={styles.btn} onPress={handleUpdateProduct}>
         <Text style={styles.btnText}>حفظ التعديلات</Text>
@@ -84,17 +82,6 @@ const EditProductPage: React.FC = () => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff", padding: 20 },
   title: { fontSize: 22, fontWeight: "bold", color: "#000", textAlign: "center", marginBottom: 20 },
-  formGroup: { marginBottom: 15 },
-  label: { fontSize: 14, color: "#000", marginBottom: 5 },
-  input: {
-    borderWidth: 1,
-    borderColor: "#2563eb",
-    borderRadius: 10,
-    padding: 10,
-    fontSize: 14,
-    color: "#000",
-    backgroundColor: "#fff",
-  },
   btn: {
     backgroundColor: "#2563eb",
     paddingVertical: 12,
